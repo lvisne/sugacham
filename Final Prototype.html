@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sugar Plate — Indian Café Edition (Phase 3)</title>
+  <style>
+    /* Indian café theme */
+    :root{
+      --bg:#fff8f0;          /* warm cream */
+      --card:#fff3e0;        /* café beige */
+      --accent:#d97706;      /* saffron */
+      --accent-2:#b45309;    /* deep saffron */
+      --text:#3b2f2f;        /* coffee brown */
+      --muted:#7b6f6a;       /* soft mocha */
+      --rim:#f1e4d6;         /* plate rim */
+      --plate:#ffffff;       /* plate white */
+      --shadow:rgba(120,72,24,0.15);
+      --ok:#16a34a; --low:#facc15; --high:#dc2626;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{font-family:"Poppins", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;margin:0;background:var(--bg);color:var(--text)}
+    .app{max-width:1200px;margin:28px auto;padding:20px;display:grid;grid-template-columns:380px 1fr;gap:20px}
+
+    /* Sidebar */
+    .panel{background:var(--card);padding:18px;border-radius:16px;box-shadow:0 12px 28px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.3)}
+    h1{margin:0 0 6px;font-size:22px;letter-spacing:.3px}
+    h2{margin:6px 0 12px;font-size:18px;color:var(--accent-2)}
+    .food-list{display:flex;flex-direction:column;gap:10px;max-height:66vh;overflow:auto;padding-right:6px}
+    .food{display:flex;align-items:center;gap:12px;padding:10px;border-radius:12px;cursor:pointer;border:1px solid rgba(120,72,24,0.12);background:#fffdf8;transition:transform .12s ease, box-shadow .12s ease}
+    .food:hover{transform:translateY(-2px);box-shadow:0 8px 18px var(--shadow)}
+    .food img{width:64px;height:64px;object-fit:cover;border-radius:10px}
+    .food .meta{flex:1}
+    .food .meta b{display:block}
+    .food .meta small{color:var(--muted)}
+    .add-btn, .btn{display:inline-block;padding:10px 12px;border-radius:10px;border:0;background:var(--accent);color:#fff;cursor:pointer;font-weight:700;letter-spacing:.2px}
+    .btn:disabled{opacity:.55;cursor:not-allowed;filter:grayscale(0.2)}
+
+    /* Main */
+    .canvas{display:flex;flex-direction:column;gap:14px}
+    .plate-wrap{position:relative;background:linear-gradient(180deg,#fffaf5,#fff3e5);padding:22px;border-radius:16px;min-height:620px;box-shadow:0 12px 28px var(--shadow)}
+
+    /* Info bar */
+    .info{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#fff7ed;border-radius:12px;border:1px solid rgba(120,72,24,0.12)}
+    .totals{font-weight:800}
+    .controls{display:flex;gap:10px;align-items:center}
+
+    /* Plate */
+    .plate-scene{position:relative;display:flex;justify-content:center;align-items:center;min-height:460px}
+    .plate{position:relative;width:480px;height:480px;border-radius:50%;
+      background:radial-gradient(circle at 50% 45%, var(--plate) 0%, #fffdf9 55%, #f7efe5 60%, #efe2d4 62%);
+      box-shadow:0 40px 80px var(--shadow), inset 0 0 0 16px var(--rim), inset 0 0 0 22px #fff;
+      overflow:hidden;
+    }
+    .plate:after{content:"";position:absolute;inset:24px;border-radius:50%;box-shadow:inset 0 18px 40px rgba(0,0,0,0.06)}
+
+    .plate .item{position:absolute;width:92px;height:92px;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid rgba(120,72,24,0.10);box-shadow:0 6px 16px var(--shadow);
+      transform:translate(-50%,-50%) scale(.92);opacity:0;animation:pop .28s ease forwards;cursor:pointer}
+    .plate .item img{max-width:100%;max-height:100%;display:block}
+    .plate .item:hover{transform:translate(-50%,-50%) scale(1.02)}
+    @keyframes pop{from{opacity:0;transform:translate(-50%,-50%) scale(.8)} to{opacity:1;transform:translate(-50%,-50%) scale(.92)}}
+
+    /* Overlay flash */
+    .flash{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity 200ms ease;backdrop-filter:saturate(140%) blur(1px)}
+    .flash .flash-inner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:white;text-shadow:0 2px 8px rgba(0,0,0,.25)}
+    .flash.show{opacity:.92}
+
+    footer{margin-top:12px;text-align:center;color:var(--muted);font-size:13px}
+
+    @media(max-width:980px){.app{grid-template-columns:1fr;}.plate{width:360px;height:360px}.plate .item{width:78px;height:78px}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel">
+      <h1>☕ Sugar Plate — Indian Café</h1>
+      <p style="margin-top:4px;color:var(--muted);font-size:14px">Add foods to the plate (tap to remove). Pick <b>at least 5 items</b> to unlock recommendations.</p>
+      <h2>Breakfast picks</h2>
+      <div class="food-list" id="foodList">
+        <!-- Real images with robust fallbacks. You can replace data-img with any URL. -->
+        <div class="food" data-name="Masala Dosa" data-sugar="3" data-img="https://vismaifood.com/storage/app/uploads/public/8b4/19e/427/thumb__1200_0_0_0_auto.jpg"><img src="https://vismaifood.com/storage/app/uploads/public/8b4/19e/427/thumb__1200_0_0_0_auto.jpg" alt="Masala Dosa"><div class="meta"><b>Masala Dosa</b><small>~3 g sugar</small></div></div>
+        <div class="food" data-name="Idli & Sambar" data-sugar="4" data-img="https://vaya.in/recipes/wp-content/uploads/2018/02/Idli-and-Sambar-1.jpg"><img src="https://vaya.in/recipes/wp-content/uploads/2018/02/Idli-and-Sambar-1.jpg" alt="Idli Sambar"><div class="meta"><b>Idli & Sambar</b><small>~4 g sugar</small></div></div>
+        <div class="food" data-name="Poha" data-sugar="2.5" data-img="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQNviqYRu3NUiH3bGBpsTSUxddYW1GIryF4tQ&s"><img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQNviqYRu3NUiH3bGBpsTSUxddYW1GIryF4tQ&s" alt="Poha"><div class="meta"><b>Poha</b><small>~2.5 g sugar</small></div></div>
+        <div class="food" data-name="Paratha" data-sugar="1.2" data-img="https://www.indianhealthyrecipes.com/wp-content/uploads/2025/08/paratha-recipe.jpg"><img src="https://www.indianhealthyrecipes.com/wp-content/uploads/2025/08/paratha-recipe.jpg" alt="Paratha"><div class="meta"><b>Paratha</b><small>~1.2 g sugar</small></div></div>
+        <div class="food" data-name="Aloo Puri" data-sugar="3.5" data-img="https://i0.wp.com/lovelaughmirch.com/wp-content/uploads/2022/03/Instant-Rasewale-Aloo-Puri-4.jpg?resize=647%2C803&ssl=1"><img src="https://i0.wp.com/lovelaughmirch.com/wp-content/uploads/2022/03/Instant-Rasewale-Aloo-Puri-4.jpg?resize=647%2C803&ssl=1" alt="Aloo Puri"><div class="meta"><b>Aloo Puri</b><small>~3.5 g sugar</small></div></div>
+        <div class="food" data-name="Chai" data-sugar="6" data-img="https://masalaandchai.com/wp-content/uploads/2021/07/Masala-Chai-Featured.jpg"><img src="https://masalaandchai.com/wp-content/uploads/2021/07/Masala-Chai-Featured.jpg" alt="Chai"><div class="meta"><b>Chai</b><small>~6 g sugar (sweet)</small></div></div>
+        <div class="food" data-name="Upma" data-sugar="2" data-img="https://simpleindianmeals.com/wp-content/uploads/2014/02/Rava-Upma.jpg"><img src="https://simpleindianmeals.com/wp-content/uploads/2014/02/Rava-Upma.jpg" alt="Upma"><div class="meta"><b>Upma</b><small>~2 g sugar</small></div></div>
+        <div class="food" data-name="Oats Bowl" data-sugar="1.5" data-img="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=256&auto=format&fit=crop"><img src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=60&w=128&auto=format&fit=crop" alt="Oats"><div class="meta"><b>Oats Bowl</b><small>~1.5 g sugar (plain)</small></div></div>
+        <div class="food" data-name="Bread Butter" data-sugar="2" data-img="https://media.istockphoto.com/id/1406277631/photo/healthy-wholemeal-toast-with-butter.jpg?s=612x612&w=0&k=20&c=pq1f_SQ6T7o_SVAKJvRRaZBcXrP72S7HpufImYZOvrc="><img src="https://media.istockphoto.com/id/1406277631/photo/healthy-wholemeal-toast-with-butter.jpg?s=612x612&w=0&k=20&c=pq1f_SQ6T7o_SVAKJvRRaZBcXrP72S7HpufImYZOvrc=" alt="Bread Butter"><div class="meta"><b>Bread Butter</b><small>~2 g sugar</small></div></div>
+        <div class="food" data-name="Banana" data-sugar="12" data-img="https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?q=80&w=256&auto=format&fit=crop"><img src="https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?q=60&w=128&auto=format&fit=crop" alt="Banana"><div class="meta"><b>Banana</b><small>~12 g sugar (natural)</small></div></div>
+        <div class="food" data-name="Apple" data-sugar="10" data-img="https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?q=80&w=256&auto=format&fit=crop"><img src="https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?q=60&w=128&auto=format&fit=crop" alt="Apple"><div class="meta"><b>Apple</b><small>~10 g sugar (natural)</small></div></div>
+        <div class="food" data-name="Suji Halwa" data-sugar="20" data-img="https://www.vegrecipesofindia.com/wp-content/uploads/2014/07/suji-halwa-recipe.jpg"><img src="https://www.vegrecipesofindia.com/wp-content/uploads/2014/07/suji-halwa-recipe.jpg" alt="Suji Halwa"><div class="meta"><b>Suji Halwa</b><small>~20 g sugar</small></div></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn" id="resetBtn" style="background:#eab308;color:#4a2d00">Reset Plate</button>
+        <button class="btn" id="recoBtn" disabled title="Pick at least 5 items">Show Recommendations</button>
+      </div>
+    </aside>
+
+    <main class="canvas panel">
+      <div class="plate-wrap">
+        <div class="info">
+          <div>
+            <div style="font-size:14px;color:var(--muted)">Selected items</div>
+            <div class="totals" id="totals">Total sugar: 0 g</div>
+          </div>
+          <div class="controls">
+            <!-- Toggle Images button removed as requested -->
+          </div>
+        </div>
+
+        <div class="plate-scene">
+          <div class="plate" id="plate" aria-label="Plate where selected foods appear"></div>
+        </div>
+
+        <div class="reco" id="recommendations" style="display:none">
+          <h3 id="recoTitle">Recommendations</h3>
+          <div id="recoBody">Pick at least 5 items to unlock recommendations, or click the button once enabled.</div>
+        </div>
+
+        <footer>Tip: Edit <code>data-sugar</code> on foods to fine-tune values. Click an item on the plate to remove it.</footer>
+      </div>
+    </main>
+  </div>
+
+  <!-- overlay flashes -->
+  <div id="flashHigh" class="flash" style="background:rgba(220,38,38,0.92)"><div class="flash-inner">High sugar — Let's balance the plate</div></div>
+  <div id="flashLow" class="flash" style="background:rgba(250,204,21,0.92)"><div class="flash-inner">Low sugar — Add smart carbs</div></div>
+  <div id="flashGood" class="flash" style="background:rgba(22,163,74,0.92)"><div class="flash-inner">Perfect balance — You're good to go!</div></div>
+
+  <script>
+    // === CONFIG ===
+    const LOW_THRESHOLD = 5;    // grams
+    const HIGH_THRESHOLD = 30;  // grams
+    const FLASH_DURATION = 1600; // ms
+
+    const foodList = document.getElementById('foodList');
+    const plate = document.getElementById('plate');
+    const totals = document.getElementById('totals');
+    const recoBtn = document.getElementById('recoBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const reco = document.getElementById('recommendations');
+    const recoTitle = document.getElementById('recoTitle');
+    const recoBody = document.getElementById('recoBody');
+
+    let selected = []; // {name, sugar, img}
+
+    function formatG(n){ return Math.round(n*10)/10 + ' g'; }
+
+    // Enable/disable recommendation button based on count
+    function updateRecoButton(){
+      const ok = selected.length >= 5; // unlock at 5+ items
+      recoBtn.disabled = !ok;
+      recoBtn.title = ok ? 'Ready: show suggestions' : 'Pick at least 5 items';
+      if(ok) { recoBtn.style.background = 'var(--accent)'; } else { recoBtn.style.background = '#d6b48a'; }
+    }
+
+    // Add from sidebar
+    [...foodList.querySelectorAll('.food')].forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const name = el.dataset.name;
+        const sugar = parseFloat(el.dataset.sugar) || 0;
+        const img = el.dataset.img || el.querySelector('img')?.src || '';
+        addToPlate({name,sugar,img});
+      });
+    });
+
+    function addToPlate(item){
+      selected.push(item);
+      renderPlate();
+      // Auto-check: if 5-6 items selected, auto show recos
+      if(selected.length >=5 && selected.length <=6){
+        generateRecommendations();
+      }
+    }
+
+    function removeAt(index){
+      selected.splice(index,1);
+      renderPlate();
+    }
+
+    function renderPlate(){
+      plate.innerHTML = '';
+      selected.forEach((it, idx)=>{
+        const div = document.createElement('div');
+        div.className = 'item';
+        div.title = `${it.name} — ${formatG(it.sugar)}`;
+        const im = document.createElement('img');
+        im.loading = 'lazy';
+        im.referrerPolicy = 'no-referrer';
+        im.src = it.img;
+        // Robust fallback: if the image fails, switch to a simple SVG badge
+        im.onerror = ()=>{
+          const svg = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='92' height='92'>
+            <rect width='100%' height='100%' rx='12' ry='12' fill='%23fff3e0'/>
+            <text x='50%' y='52%' dominant-baseline='middle' text-anchor='middle' font-family='Poppins, Arial' font-size='12' fill='%23b45309'>${it.name.replace(/&/g,'&amp;')}</text>
+          </svg>`);
+          im.src = `data:image/svg+xml;charset=UTF-8,${svg}`;
+        };
+        div.appendChild(im);
+        div.addEventListener('click', ()=> removeAt(idx));
+        plate.appendChild(div);
+      });
+      arrangeInRings();
+      updateTotals();
+      updateRecoButton();
+    }
+
+    // Arrange items in concentric rings dynamically (organized layout)
+    function arrangeInRings(){
+      const items = [...plate.querySelectorAll('.item')];
+      const W = plate.clientWidth; // assume square
+      const cx = W/2, cy = W/2;
+      const ringGap = 70; // distance between rings
+      const baseRadius = 48; // inner center offset
+
+      let count = items.length;
+      if(count===0) return;
+
+      const rings = [];
+      let remaining = count; let ringIndex = 0;
+      while(remaining>0 && ringIndex < 6){
+        const capacity = Math.max(1, Math.round((2*Math.PI*(baseRadius + ringGap*ringIndex))/100));
+        const take = Math.min(capacity, remaining);
+        rings.push(take);
+        remaining -= take;
+        ringIndex++;
+      }
+
+      let placed = 0;
+      rings.forEach((n, r)=>{
+        const radius = baseRadius + ringGap*r + 70; // offset from center
+        const step = (2*Math.PI)/n;
+        for(let i=0;i<n;i++){
+          const angle = -Math.PI/2 + i*step; // start at top
+          const x = cx + radius*Math.cos(angle);
+          const y = cy + radius*Math.sin(angle);
+          const el = items[placed++];
+          if(!el) return;
+          el.style.left = x + 'px';
+          el.style.top = y + 'px';
+        }
+      });
+    }
+
+    function updateTotals(){
+      const total = selected.reduce((s,i)=>s + (parseFloat(i.sugar)||0), 0);
+      totals.textContent = 'Total sugar: ' + formatG(total);
+    }
+
+    // Flash helper
+    function flash(type){
+      const mapping = {high:'flashHigh', low:'flashLow', good:'flashGood'};
+      const el = document.getElementById(mapping[type]);
+      if(!el) return;
+      el.classList.add('show');
+      setTimeout(()=>el.classList.remove('show'), FLASH_DURATION);
+    }
+
+    // Recommendations
+    function generateRecommendations(){
+      const total = selected.reduce((s,i)=>s + (parseFloat(i.sugar)||0), 0);
+      if(selected.length===0){
+        recoTitle.textContent = 'No items selected';
+        recoBody.innerHTML = '<p>Please add some food items to your plate to get recommendations.</p>';
+        reco.style.display = 'block';
+        return;
+      }
+
+      if(total > HIGH_THRESHOLD){
+        flash('high');
+        recoTitle.textContent = 'High sugar — Balance your plate';
+        recoBody.innerHTML = `<p>Total sugar: <strong>${formatG(total)}</strong> (>${formatG(HIGH_THRESHOLD)})</p>
+          <ul>
+            <li>Swap sweets (halwa) with fruits like apple.</li>
+            <li>Reduce added sugar in chai or choose sugar-free.</li>
+            <li>Add protein (curd, sprouts) and fiber (salad) to slow sugar spikes.</li>
+          </ul>`;
+      } else if(total < LOW_THRESHOLD){
+        flash('low');
+        recoTitle.textContent = 'Low sugar — Add smart carbs';
+        recoBody.innerHTML = `<p>Total sugar: <strong>${formatG(total)}</strong> (< ${formatG(LOW_THRESHOLD)})</p>
+          <ul>
+            <li>Add a banana or a small bowl of poha/upma.</li>
+            <li>Include milk/curd for steady energy.</li>
+          </ul>`;
+      } else {
+        flash('good');
+        recoTitle.textContent = `You're good to go!`;
+        recoBody.innerHTML = `<p>Total sugar: <strong>${formatG(total)}</strong> — nicely balanced.</p>
+          <ul>
+            <li>Keep portions sensible; prefer whole foods.</li>
+            <li>Stay hydrated; enjoy your café breakfast!</li>
+          </ul>`;
+      }
+      reco.style.display = 'block';
+    }
+
+    // events
+    recoBtn.addEventListener('click', generateRecommendations);
+    resetBtn.addEventListener('click', ()=>{ selected = []; renderPlate(); reco.style.display='none'; updateRecoButton(); });
+
+    // initial render
+    renderPlate();
+    window.addEventListener('resize', arrangeInRings);
+  </script>
+</body>
+</html>
